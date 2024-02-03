@@ -12,8 +12,31 @@ pygame.display.set_caption("2d Type Shi")
 WIDTH, HEIGHT = 1000, 800
 FPS = 60
 PLAYER_VEL = 5
+volume = .5
 
 window = pygame.display.set_mode((WIDTH, HEIGHT))
+
+pygame.mixer.init()
+pygame.mixer.music.load("music/nostylist.mp3")
+pygame.mixer.music.play(-1)
+   
+def draw_volume_bar(win, volume):
+    bar_width = 200
+    bar_height = 20
+    bar_x = 10
+    bar_y = 10
+
+    pygame.draw.line(win, (100, 100, 100), (bar_x, bar_y + bar_height // 2), (bar_x + bar_width, bar_y + bar_height // 2), 2)
+
+    slider_x = bar_x + int(volume * bar_width)
+
+    pygame.draw.rect(win, (255, 255, 255), (slider_x - 5, bar_y - 5, 10, bar_height + 10))
+
+def draw_pause_menu(win):
+    font = pygame.font.Font(None, 74)
+    text = font.render("Paused", True, (255, 255, 255))
+    win.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 2 - text.get_height() // 2))
+    pygame.display.update()
 
 def flip(sprites):
     return [pygame.transform.flip(sprite, True, False) for sprite in sprites]
@@ -217,6 +240,8 @@ def draw(window, background, bg_image, player, objects, offset_x):
 
     player.draw(window, offset_x)
 
+    draw_volume_bar(window, volume) 
+
     pygame.display.update()
 
 
@@ -270,6 +295,7 @@ def handle_move(player, objects):
 
 
 def main(window):
+    global volume
     clock = pygame.time.Clock()
     background, bg_image = get_background("pixil-frame-0.png")
     
@@ -284,6 +310,9 @@ def main(window):
     offset_x = 0
     scroll_area_width = 200
 
+    is_paused = False 
+    pause_key_pressed = False
+
     run = True
     while run:
         clock.tick(FPS)
@@ -297,15 +326,39 @@ def main(window):
                 if event.key == pygame.K_SPACE and player.jump_count < 2:
                     player.jump()
 
-        player.loop(FPS)
-        fire.loop()
-        handle_move(player, objects)
-        draw(window, background, bg_image, player, objects, offset_x)
+                if event.key == pygame.K_l:
+                    volume = min(1.0, volume + 0.1)
+                    pygame.mixer.music.set_volume(volume)
+                elif event.key == pygame.K_k:
+                    volume = max(0.0, volume - 0.1)
+                    pygame.mixer.music.set_volume(volume)
 
-        if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or (
-            (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):                         #screen scroll
-            offset_x += player.x_vel
+                if event.key == pygame.K_ESCAPE and not pause_key_pressed:
+                    is_paused = not is_paused
+                    pause_key_pressed = True
+
+                    if is_paused:
+                        pygame.mixer.music.pause()
+                    else:
+                        pygame.mixer.music.unpause()
+
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_ESCAPE:
+                    pause_key_pressed = False
+
+        if not is_paused:
+            player.loop(FPS)
+            fire.loop()
+            handle_move(player, objects)
+            draw(window, background, bg_image, player, objects, offset_x)
+
+            if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or (
+                (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):                         #screen scroll
+                offset_x += player.x_vel
+        else:
+            draw_pause_menu(window)
         
+    pygame.mixer.music.stop()
     pygame.quit()
     quit()
 
